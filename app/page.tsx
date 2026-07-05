@@ -541,10 +541,10 @@ export default function MemoriqDashboard() {
   }
 
   return (
-    <div className="flex-1 flex flex-col w-full max-w-md lg:max-w-7xl lg:my-6 lg:min-h-[calc(100vh-3rem)] mx-auto bg-white shadow-xl lg:shadow-2xl border-x lg:border border-zinc-200/50 lg:rounded-2xl relative overflow-hidden pb-safe">
+    <div className="flex-1 flex flex-col w-full max-w-md h-[100dvh] min-h-[100dvh] lg:h-auto lg:max-w-7xl lg:my-6 lg:min-h-[calc(100vh-3rem)] mx-auto bg-white shadow-xl lg:shadow-2xl border-x lg:border border-zinc-200/50 lg:rounded-2xl relative overflow-hidden">
       
       {/* Header */}
-      <header className="z-10 px-6 lg:px-8 pt-5 pb-4 flex items-center justify-between border-b border-zinc-100 bg-white sticky top-0">
+      <header className="z-20 shrink-0 px-5 lg:px-8 pt-[calc(1rem+env(safe-area-inset-top))] lg:pt-5 pb-4 flex items-center justify-between border-b border-zinc-100 bg-white">
         <div className="flex items-center space-x-2.5">
           <div className="w-9 h-9 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center overflow-hidden shadow-sm">
             <Image
@@ -569,7 +569,7 @@ export default function MemoriqDashboard() {
       </header>
 
       {/* Main Content Area */}
-      <div className="flex-1 lg:grid lg:grid-cols-[240px_minmax(0,1fr)_300px] lg:overflow-hidden bg-[#f6f8f5]">
+      <div className="flex flex-col flex-1 min-h-0 lg:grid lg:grid-cols-[240px_minmax(0,1fr)_300px] lg:overflow-hidden bg-[#f6f8f5]">
         <aside className="hidden lg:flex flex-col gap-4 border-r border-zinc-200/80 bg-white/75 px-5 py-5 overflow-y-auto">
           <div className="space-y-2">
             <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold">Navigation</span>
@@ -629,7 +629,7 @@ export default function MemoriqDashboard() {
           </div>
         </aside>
 
-      <main className="flex-1 overflow-y-auto px-5 py-5 lg:px-8 lg:py-6 z-10 space-y-4 bg-[#f6f8f5]">
+      <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pt-5 pb-[calc(6.75rem+env(safe-area-inset-bottom))] lg:px-8 lg:py-6 z-10 space-y-4 bg-[#f6f8f5]">
         
         {/* Sync Status Banner */}
         {syncing && (
@@ -787,7 +787,7 @@ export default function MemoriqDashboard() {
               </div>
 
               {/* Controls */}
-              <div className="flex items-center justify-between">
+              <div className="grid grid-cols-[2.75rem_1fr] gap-3 sm:flex sm:items-center sm:justify-between">
                 
                 {/* Loop Button */}
                 <button
@@ -802,7 +802,7 @@ export default function MemoriqDashboard() {
                 </button>
 
                 {/* Player button row */}
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center justify-center space-x-2">
                   <button
                     onClick={() => navigateAyah('prev')}
                     className="p-2.5 rounded-lg border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 transition"
@@ -826,9 +826,9 @@ export default function MemoriqDashboard() {
                 </div>
 
                 {/* Audio label info */}
-                <div className="text-right max-w-[8.5rem] lg:max-w-none">
+                <div className="col-span-2 text-left sm:text-right sm:max-w-[8.5rem] lg:max-w-none border-t border-zinc-100 sm:border-t-0 pt-2 sm:pt-0">
                   <span className="text-[8px] text-zinc-400 uppercase tracking-widest font-bold block">Récitateur</span>
-                  <span className="text-[10px] text-zinc-700 font-medium inline-flex items-center justify-end mt-0.5 leading-tight">
+                  <span className="text-[10px] text-zinc-700 font-medium inline-flex items-center sm:justify-end mt-0.5 leading-tight">
                     <Volume2 className="w-3 h-3 mr-1 text-zinc-450" /> {RECITER_NAME}
                   </span>
                 </div>
@@ -1097,10 +1097,10 @@ export default function MemoriqDashboard() {
       </div>
 
       {/* Navigation Tab Bar */}
-      <nav className="z-10 bg-white border-t border-zinc-200/80 px-6 py-2 flex lg:hidden items-center justify-around sticky bottom-0">
+      <nav className="z-30 fixed left-1/2 bottom-0 w-full max-w-md -translate-x-1/2 bg-white/95 backdrop-blur border-x border-t border-zinc-200/80 px-4 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex lg:hidden items-center justify-around shadow-[0_-10px_30px_rgba(15,23,42,0.08)]">
         <button
           onClick={() => setActiveTab('learn')}
-          className={`flex flex-col items-center space-y-1 py-1.5 px-3 rounded-lg transition ${
+          className={`flex flex-1 flex-col items-center space-y-1 py-1.5 px-2 rounded-lg transition ${
             activeTab === 'learn' ? 'text-brand-500 font-bold' : 'text-zinc-400 hover:text-zinc-650'
           }`}
         >
@@ -1110,7 +1110,7 @@ export default function MemoriqDashboard() {
 
         <button
           onClick={() => setActiveTab('review')}
-          className={`flex flex-col items-center space-y-1 py-1.5 px-3 rounded-lg transition ${
+          className={`flex flex-1 flex-col items-center space-y-1 py-1.5 px-2 rounded-lg transition ${
             activeTab === 'review' ? 'text-brand-500 font-bold' : 'text-zinc-400 hover:text-zinc-650'
           }`}
         >
@@ -1120,7 +1120,7 @@ export default function MemoriqDashboard() {
 
         <button
           onClick={() => setActiveTab('settings')}
-          className={`flex flex-col items-center space-y-1 py-1.5 px-3 rounded-lg transition ${
+          className={`flex flex-1 flex-col items-center space-y-1 py-1.5 px-2 rounded-lg transition ${
             activeTab === 'settings' ? 'text-brand-500 font-bold' : 'text-zinc-400 hover:text-zinc-650'
           }`}
         >
