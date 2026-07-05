@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f6f8f5; /* Soft light paper green-tinted background */
+  --foreground: #1e2522; /* High contrast dark charcoal/green text */
+  --card-bg: #ffffff;
+  --border-color: #e1e7e3;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  
+  --font-sans: var(--font-outfit), system-ui, -apple-system, sans-serif;
+  --font-arabic: var(--font-amiri), serif;
+  
+  /* Brand Green Palette */
+  --color-brand-50: #f3f7f4;
+  --color-brand-100: #e3ede7;
+  --color-brand-200: #c6dbcf;
+  --color-brand-300: #9cc0aa;
+  --color-brand-400: #6d9f82;
+  --color-brand-500: #2d6a4f; /* Soothing study green */
+  --color-brand-600: #1b4332; /* Classical deep green */
+  --color-brand-700: #143225;
+  --color-brand-800: #0f251c;
+  --color-brand-900: #08140f;
+  --color-brand-950: #040a08;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand-500);
+}
+
+/* Readable Arabic Typography */
+.quran-arabic {
+  font-family: var(--font-arabic);
+  direction: rtl;
+  line-height: 2.3;
+}
+
+/* iOS Safe Areas for PWA Standalone */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 16px);
+}
+
+.mb-safe {
+  margin-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+.mt-safe {
+  margin-top: env(safe-area-inset-top, 16px);
+}
