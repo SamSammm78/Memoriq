@@ -2,6 +2,16 @@
 
 import Image from 'next/image';
 import { useState, useEffect, useRef } from 'react';
+import {
+  findAdjacentAyah,
+  markAyahAsLearned,
+  normalizeProgressionForToday,
+  toggleRevisedAyahForToday,
+  type Ayah,
+  type Progression,
+  type QuranData,
+  type Surah
+} from '@/lib/progression';
 import { 
   Play, 
   Pause, 
@@ -21,59 +31,10 @@ import {
   ChevronDown
 } from 'lucide-react';
 
-// --- Types ---
-interface Ayah {
-  number: number;
-  numberInSurah: number;
-  text: string;
-  translation: string;
-  transliteration: string;
-}
-
-interface Surah {
-  number: number;
-  name: string;
-  englishName: string;
-  englishNameTranslation: string;
-  ayahs: Ayah[];
-}
-
-interface QuranData {
-  surahs: Surah[];
-}
-
 const BASMALAH_ARABIC = 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ';
 const BASMALAH_TRANSLITERATION = 'Bismillah arrahmani rahim';
 const RECITER_NAME = 'Sheikh Mahmoud Khalil Al-Husary';
 const RECITER_AUDIO_FOLDER = 'Husary_128kbps';
-
-interface Progression {
-  current_memorizing: { surah: number; ayah: number };
-  learned_ayahs: { surah: number; ayah: number }[];
-  streak: number;
-  last_active_date: string;
-  notification_time: string;
-  push_subscription: PushSubscriptionJSON | null;
-  revised_today?: { surah: number; ayah: number }[];
-}
-
-// --- Date Helpers ---
-const getTodayDateString = () => {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const getYesterdayDateString = () => {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 const splitOpeningBasmala = (ayah?: Ayah) => {
   const text = ayah?.text?.replace(/^\uFEFF/, '').trim() || '';
@@ -189,26 +150,7 @@ export default function MemoriqDashboard() {
         if (res.ok) {
           const data: Progression = await res.json();
           
-          const today = getTodayDateString();
-          const yesterday = getYesterdayDateString();
-          const lastActive = data.last_active_date;
-          let updatedStreak = data.streak || 0;
-          let revisedToday = data.revised_today || [];
-
-          if (lastActive === '') {
-            updatedStreak = 0;
-          } else if (lastActive === yesterday) {
-            // Consecutive day
-          } else if (lastActive !== today) {
-            updatedStreak = 0;
-            revisedToday = [];
-          }
-
-          const processedData = {
-            ...data,
-            streak: updatedStreak,
-            revised_today: revisedToday
-          };
+          const processedData = normalizeProgressionForToday(data);
 
           setProgression(processedData);
           setNotifHour(processedData.notification_time || '13:00');
@@ -324,85 +266,30 @@ export default function MemoriqDashboard() {
   };
 
   const navigateAyah = (direction: 'next' | 'prev') => {
-    if (!quran || !currentSurah) return;
+    if (!quran) return;
 
-    let nextSurahIdx = selectedSurahIndex;
-    let nextAyahIdx = selectedAyahIndex;
-
-    if (direction === 'next') {
-      if (selectedAyahIndex < currentSurah.ayahs.length - 1) {
-        nextAyahIdx++;
-      } else if (selectedSurahIndex < quran.surahs.length - 1) {
-        nextSurahIdx++;
-        nextAyahIdx = 0;
-      } else {
+    const nextTarget = findAdjacentAyah(quran, selectedSurahIndex, selectedAyahIndex, direction);
+    if (!nextTarget) {
+      if (direction === 'next') {
         showTemporaryStatus('Dernier verset du Coran atteint !');
-        return;
       }
-    } else {
-      if (selectedAyahIndex > 0) {
-        nextAyahIdx--;
-      } else if (selectedSurahIndex > 0) {
-        nextSurahIdx--;
-        nextAyahIdx = quran.surahs[nextSurahIdx].ayahs.length - 1;
-      } else {
-        return;
-      }
+      return;
     }
 
-    setSelectedSurahIndex(nextSurahIdx);
-    setSelectedAyahIndex(nextAyahIdx);
+    setSelectedSurahIndex(nextTarget.surahIndex);
+    setSelectedAyahIndex(nextTarget.ayahIndex);
   };
 
   const markAsLearned = () => {
     if (!currentSurah || !currentAyah || !quran) return;
 
-    const today = getTodayDateString();
-    
-    const isAlreadyLearned = progression.learned_ayahs.some(
-      a => a.surah === currentSurah.number && a.ayah === currentAyah.numberInSurah
-    );
+    const updatedProgression = markAyahAsLearned(progression, quran, currentSurah, currentAyah);
+    const nextSurah = updatedProgression.current_memorizing.surah;
+    const nextAyah = updatedProgression.current_memorizing.ayah;
 
-    const updatedLearned = [...progression.learned_ayahs];
-    if (!isAlreadyLearned) {
-      updatedLearned.push({
-        surah: currentSurah.number,
-        ayah: currentAyah.numberInSurah
-      });
+    if (nextSurah === currentSurah.number && nextAyah === currentAyah.numberInSurah) {
+      showTemporaryStatus('Félicitations ! Vous avez fini le Coran.');
     }
-
-    let newStreak = progression.streak;
-    const lastActive = progression.last_active_date;
-    
-    if (lastActive === '') {
-      newStreak = 1;
-    } else if (lastActive === getYesterdayDateString()) {
-      newStreak += 1;
-    } else if (lastActive !== today) {
-      newStreak = 1;
-    }
-
-    let nextSurah = currentSurah.number;
-    let nextAyah = currentAyah.numberInSurah + 1;
-
-    if (currentAyah.numberInSurah >= currentSurah.ayahs.length) {
-      if (currentSurah.number < 114) {
-        nextSurah = currentSurah.number + 1;
-        nextAyah = 1;
-      } else {
-        nextSurah = 114;
-        nextAyah = currentSurah.ayahs.length;
-        showTemporaryStatus('Félicitations ! Vous avez fini le Coran.');
-      }
-    }
-
-    const updatedProgression: Progression = {
-      ...progression,
-      learned_ayahs: updatedLearned,
-      current_memorizing: { surah: nextSurah, ayah: nextAyah },
-      streak: newStreak,
-      last_active_date: today
-    };
 
     saveProgression(updatedProgression);
     showTemporaryStatus('Verset marqué comme appris.');
@@ -412,34 +299,7 @@ export default function MemoriqDashboard() {
   };
 
   const toggleRevisedToday = (surahNum: number, ayahNum: number) => {
-    const today = getTodayDateString();
-    let revised = progression.revised_today ? [...progression.revised_today] : [];
-    const isAlreadyRevised = revised.some(r => r.surah === surahNum && r.ayah === ayahNum);
-
-    if (isAlreadyRevised) {
-      revised = revised.filter(r => !(r.surah === surahNum && r.ayah === ayahNum));
-    } else {
-      revised.push({ surah: surahNum, ayah: ayahNum });
-    }
-
-    let newStreak = progression.streak;
-    const lastActive = progression.last_active_date;
-    if (lastActive === '') {
-      newStreak = 1;
-    } else if (lastActive === getYesterdayDateString()) {
-      newStreak += 1;
-    } else if (lastActive !== today) {
-      newStreak = 1;
-    }
-
-    const updatedProgression: Progression = {
-      ...progression,
-      revised_today: revised,
-      streak: newStreak,
-      last_active_date: today
-    };
-
-    saveProgression(updatedProgression);
+    saveProgression(toggleRevisedAyahForToday(progression, { surah: surahNum, ayah: ayahNum }));
   };
 
   const clearRevisions = () => {
