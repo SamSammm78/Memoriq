@@ -100,6 +100,7 @@ export default function MemoriqDashboard() {
   // Push notifications states
   const [isPushSupported, setIsPushSupported] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [testingNotification, setTestingNotification] = useState(false);
   const [vapidPublicKey, setVapidPublicKey] = useState<string>('');
   const [notifHour, setNotifHour] = useState('13:00');
 
@@ -374,6 +375,45 @@ export default function MemoriqDashboard() {
     };
     await saveProgression(updated);
     showTemporaryStatus(`Heure enregistrée : ${notifHour}`);
+  };
+
+  const handleTestNotification = async () => {
+    if (!isPushSupported) {
+      showTemporaryStatus('Notifications indisponibles sur cet appareil.');
+      return;
+    }
+
+    if (!isSubscribed) {
+      showTemporaryStatus('Activez d’abord le rappel quotidien.');
+      return;
+    }
+
+    setTestingNotification(true);
+    try {
+      const res = await fetch('/api/push-subscription/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (res.status === 410) {
+        setIsSubscribed(false);
+        const updated = { ...progression, push_subscription: null };
+        setProgression(updated);
+        showTemporaryStatus('Inscription expirée. Réactivez les notifications.');
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error('Test notification failed');
+      }
+
+      showTemporaryStatus('Notification de test envoyée.');
+    } catch (error) {
+      console.error('Failed to send test notification:', error);
+      showTemporaryStatus('Impossible d’envoyer la notification de test.');
+    } finally {
+      setTestingNotification(false);
+    }
   };
 
   const getAyahDetails = (surahNum: number, ayahNum: number) => {
@@ -652,13 +692,13 @@ export default function MemoriqDashboard() {
                 {/* Loop Button */}
                 <button
                   onClick={() => setIsLooping(!isLooping)}
-                  className={`p-2 rounded-lg border text-xs font-semibold transition-all ${
+                  className={`w-14 h-14 sm:w-10 sm:h-10 rounded-xl sm:rounded-lg border text-xs font-semibold transition-all flex items-center justify-center justify-self-start ${
                     isLooping 
                       ? 'bg-brand-100 text-brand-600 border-brand-200' 
                       : 'text-zinc-400 border-zinc-200 bg-transparent hover:text-zinc-650'
                   }`}
                 >
-                  <RotateCcw className="w-4 h-4" />
+                  <RotateCcw className="w-5 h-5 sm:w-4 sm:h-4" />
                 </button>
 
                 {/* Player button row */}
@@ -845,17 +885,32 @@ export default function MemoriqDashboard() {
 
               {/* Button */}
               {isPushSupported && (
-                <button
-                  onClick={toggleNotifications}
-                  className={`w-full py-2 px-3 rounded-lg font-bold text-xs tracking-wider uppercase transition flex items-center justify-center space-x-2 ${
-                    isSubscribed
-                      ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-300'
-                      : 'bg-brand-500 hover:bg-brand-600 text-white'
-                  }`}
-                >
-                  <Bell className="w-3.5 h-3.5" />
-                  <span>{isSubscribed ? 'Désactiver les notifications' : 'Activer le rappel quotidien'}</span>
-                </button>
+                <div className="space-y-2">
+                  <button
+                    onClick={toggleNotifications}
+                    className={`w-full py-2 px-3 rounded-lg font-bold text-xs tracking-wider uppercase transition flex items-center justify-center space-x-2 ${
+                      isSubscribed
+                        ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-300'
+                        : 'bg-brand-500 hover:bg-brand-600 text-white'
+                    }`}
+                  >
+                    <Bell className="w-3.5 h-3.5" />
+                    <span>{isSubscribed ? 'Désactiver les notifications' : 'Activer le rappel quotidien'}</span>
+                  </button>
+
+                  <button
+                    onClick={handleTestNotification}
+                    disabled={!isSubscribed || testingNotification}
+                    className="w-full py-2 px-3 rounded-lg font-bold text-xs tracking-wider uppercase transition flex items-center justify-center space-x-2 bg-white text-brand-600 border border-brand-200 disabled:text-zinc-350 disabled:border-zinc-200 disabled:bg-zinc-50 disabled:cursor-not-allowed"
+                  >
+                    {testingNotification ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Bell className="w-3.5 h-3.5" />
+                    )}
+                    <span>{testingNotification ? 'Envoi du test...' : 'Tester la notification iPhone'}</span>
+                  </button>
+                </div>
               )}
             </div>
 
