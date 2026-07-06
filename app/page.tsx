@@ -899,7 +899,7 @@ export default function MemoriqDashboard() {
             <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3.5 text-[9px] text-zinc-500 space-y-1 font-mono">
               <div className="font-bold text-zinc-500 mb-1 uppercase tracking-wider">Informations Techniques</div>
               <div>VAPID : {vapidPublicKey ? `${vapidPublicKey.substring(0, 16)}...` : 'Actif en local'}</div>
-              <div>Database : Vercel KV + fallback JSON</div>
+              <div>Database : Vercel Blob + fallback JSON</div>
               <div>Audio Feed : everyayah.com ({RECITER_NAME})</div>
             </div>
 

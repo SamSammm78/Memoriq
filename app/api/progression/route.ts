@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { kv } from '@/lib/kv';
 
 const KV_KEY = 'memoriq:progression';
+const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' };
+
+export const dynamic = 'force-dynamic';
 
 const DEFAULT_PROGRESSION = {
   current_memorizing: { surah: 1, ayah: 1 },
@@ -19,10 +22,10 @@ export async function GET() {
       data = DEFAULT_PROGRESSION;
       await kv.set(KV_KEY, data);
     }
-    return NextResponse.json(data);
+    return NextResponse.json(data, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error('Error fetching progression:', error);
-    return NextResponse.json({ error: 'Failed to fetch progression' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch progression' }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
 
@@ -46,9 +49,9 @@ export async function POST(request: Request) {
     };
 
     await kv.set(KV_KEY, updatedData);
-    return NextResponse.json({ success: true, data: updatedData });
+    return NextResponse.json({ success: true, data: updatedData }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error('Error saving progression:', error);
-    return NextResponse.json({ error: 'Failed to save progression' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to save progression' }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }

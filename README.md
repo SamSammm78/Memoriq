@@ -34,3 +34,17 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Central Progress Storage
+
+Memoriq stores progression through `/api/progression`. In production, configure a public Vercel Blob store and connect it to the Vercel project so `BLOB_READ_WRITE_TOKEN` is available to server routes.
+
+The app writes immutable JSON snapshots under `memoriq/progression/` and reads the latest snapshot. This keeps iPhone and PC progress centralized without user accounts. In local development, it falls back to `local-kv-store.json`.
+
+Required Vercel setup:
+
+1. Open the project in Vercel.
+2. Go to Storage.
+3. Create a Blob store with Public access.
+4. Connect it to this project for Production, Preview, and Development as needed.
+5. Redeploy.
