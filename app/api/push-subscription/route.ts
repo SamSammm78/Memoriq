@@ -6,7 +6,7 @@ const KV_KEY = 'memoriq:progression';
 
 export async function GET() {
   try {
-    const publicKey = getVapidPublicKey();
+    const publicKey = await getVapidPublicKey();
     return NextResponse.json({ publicKey });
   } catch (error) {
     console.error('Error getting VAPID public key:', error);

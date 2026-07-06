@@ -39,6 +39,16 @@ export async function POST() {
       );
     }
 
+    if (!result.success) {
+      return NextResponse.json(
+        {
+          error: 'Web push delivery failed.',
+          result
+        },
+        { status: result.statusCode || 500, headers: NO_STORE_HEADERS }
+      );
+    }
+
     return NextResponse.json({ success: true, result }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     console.error('Error sending test notification:', error);

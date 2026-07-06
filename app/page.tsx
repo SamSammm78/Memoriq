@@ -69,6 +69,21 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
+function arrayBufferToUrlBase64(buffer: ArrayBuffer | null) {
+  if (!buffer) return '';
+
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+
+  return window.btoa(binary)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
+
 export default function MemoriqDashboard() {
   // --- States ---
   const [quran, setQuran] = useState<QuranData | null>(null);
@@ -115,14 +130,31 @@ export default function MemoriqDashboard() {
   async function checkPushSubscription() {
     try {
       const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
-      setIsSubscribed(!!subscription);
-      
       const keyRes = await fetch('/api/push-subscription');
+      let currentPublicKey = '';
       if (keyRes.ok) {
         const keyData = await keyRes.json();
-        setVapidPublicKey(keyData.publicKey);
+        currentPublicKey = keyData.publicKey || '';
+        setVapidPublicKey(currentPublicKey);
       }
+
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription && currentPublicKey) {
+        const subscriptionKey = arrayBufferToUrlBase64(subscription.options.applicationServerKey);
+        if (subscriptionKey && subscriptionKey !== currentPublicKey) {
+          await subscription.unsubscribe();
+          await fetch('/api/push-subscription', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subscription: null })
+          });
+          setIsSubscribed(false);
+          showTemporaryStatus('Clé notification mise à jour. Réactivez le rappel.');
+          return;
+        }
+      }
+
+      setIsSubscribed(!!subscription);
     } catch (e) {
       console.warn('Push manager subscription check failed:', e);
     }
@@ -404,7 +436,12 @@ export default function MemoriqDashboard() {
       }
 
       if (!res.ok) {
-        throw new Error('Test notification failed');
+        const payload = await res.json().catch(() => null);
+        if (payload?.result?.statusCode === 401 || payload?.result?.statusCode === 403) {
+          showTemporaryStatus('Réactivez les notifications puis relancez le test.');
+          return;
+        }
+        throw new Error(payload?.error || 'Test notification failed');
       }
 
       showTemporaryStatus('Notification de test envoyée.');
