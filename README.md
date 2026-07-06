@@ -37,9 +37,9 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## Central Progress Storage
 
-Memoriq stores progression through `/api/progression`. In production, configure a public Vercel Blob store and connect it to the Vercel project so `BLOB_READ_WRITE_TOKEN` is available to server routes.
+Memoriq stores progression through `/api/progression`. In production, configure a public Vercel Blob store and connect it to the Vercel project so `BLOB_STORE_ID` is available to server routes. Vercel Blob authentication is handled by Vercel's automatic OIDC flow at runtime.
 
-The app writes immutable JSON snapshots under `memoriq/progression/` and reads the latest snapshot. This keeps iPhone and PC progress centralized without user accounts. In local development, it falls back to `local-kv-store.json`.
+The app writes one stable JSON blob at `memoriq/progression.json` with overwrite enabled, then reads it with `cache: 'no-store'`. This keeps iPhone and PC progress centralized without user accounts. In local development only, it can fall back to `local-kv-store.json`.
 
 Required Vercel setup:
 
@@ -47,4 +47,5 @@ Required Vercel setup:
 2. Go to Storage.
 3. Create a Blob store with Public access.
 4. Connect it to this project for Production, Preview, and Development as needed.
-5. Redeploy.
+5. Confirm `BLOB_STORE_ID` is present in the project environment.
+6. Redeploy.
