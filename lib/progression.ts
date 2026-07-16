@@ -23,14 +23,94 @@ export interface QuranData {
   surahs: Surah[];
 }
 
+export type VerseStatus = 'acquis' | 'a_reviser';
+
+export interface SurahProgress {
+  name: string;
+  verses: Record<string, VerseStatus>;
+}
+
+export type ProgressionBySurah = Record<string, SurahProgress>;
+
 export interface Progression {
   current_memorizing: AyahRef;
   learned_ayahs: AyahRef[];
+  progression: ProgressionBySurah;
   streak: number;
   last_active_date: string;
   notification_time: string;
   push_subscription: PushSubscriptionJSON | null;
   revised_today?: AyahRef[];
+}
+
+export function migrateProgressionBySurah(
+  progression: Progression,
+  quran?: QuranData
+): Progression {
+  const structured: ProgressionBySurah = {};
+
+  for (const [surahNumber, surahProgress] of Object.entries(progression.progression || {})) {
+    const verses = Object.fromEntries(
+      Object.entries(surahProgress?.verses || {}).filter(
+        (entry): entry is [string, VerseStatus] => entry[1] === 'acquis' || entry[1] === 'a_reviser'
+      )
+    );
+
+    if (Object.keys(verses).length > 0) {
+      structured[surahNumber] = {
+        name: surahProgress.name || `Sourate ${surahNumber}`,
+        verses
+      };
+    }
+  }
+
+  for (const learned of progression.learned_ayahs || []) {
+    const surahKey = String(learned.surah);
+    const surahName = quran?.surahs.find((surah) => surah.number === learned.surah)?.englishName;
+    const current = structured[surahKey] || {
+      name: surahName || `Sourate ${surahKey}`,
+      verses: {}
+    };
+
+    structured[surahKey] = {
+      name: surahName || current.name,
+      verses: {
+        ...current.verses,
+        [String(learned.ayah)]: current.verses[String(learned.ayah)] || 'acquis'
+      }
+    };
+  }
+
+  return {
+    ...progression,
+    progression: structured
+  };
+}
+
+export function updateVerseStatus(
+  progression: Progression,
+  surahNumber: number,
+  surahName: string,
+  ayahNumber: number,
+  status: VerseStatus
+): Progression {
+  const normalized = migrateProgressionBySurah(progression);
+  const surahKey = String(surahNumber);
+  const current = normalized.progression[surahKey] || { name: surahName, verses: {} };
+
+  return {
+    ...normalized,
+    progression: {
+      ...normalized.progression,
+      [surahKey]: {
+        name: surahName || current.name,
+        verses: {
+          ...current.verses,
+          [String(ayahNumber)]: status
+        }
+      }
+    }
+  };
 }
 
 export function getDateString(date = new Date()) {
@@ -172,13 +252,13 @@ export function markAyahAsLearned(
         { surah: currentSurah.number, ayah: currentAyah.numberInSurah }
       ];
 
-  return {
+  return updateVerseStatus({
     ...progression,
     learned_ayahs: learnedAyahs,
     current_memorizing: getNextMemorizationTarget(quran, currentSurah, currentAyah),
     streak: calculateNextStreak(progression, today, yesterday),
     last_active_date: today
-  };
+  }, currentSurah.number, currentSurah.englishName, currentAyah.numberInSurah, 'acquis');
 }
 
 export function toggleRevisedAyahForToday(

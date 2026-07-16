@@ -3,8 +3,10 @@ import {
   calculateNextStreak,
   findAdjacentAyah,
   markAyahAsLearned,
+  migrateProgressionBySurah,
   normalizeProgressionForToday,
   toggleRevisedAyahForToday,
+  updateVerseStatus,
   type Progression,
   type QuranData
 } from './progression';
@@ -37,6 +39,7 @@ const quran: QuranData = {
 const baseProgression: Progression = {
   current_memorizing: { surah: 1, ayah: 1 },
   learned_ayahs: [],
+  progression: {},
   streak: 0,
   last_active_date: '',
   notification_time: '13:00',
@@ -56,9 +59,39 @@ describe('progression rules', () => {
     );
 
     expect(updated.learned_ayahs).toEqual([{ surah: 1, ayah: 1 }]);
+    expect(updated.progression['1']).toEqual({
+      name: 'Al-Fatihah',
+      verses: { '1': 'acquis' }
+    });
     expect(updated.current_memorizing).toEqual({ surah: 1, ayah: 2 });
     expect(updated.streak).toBe(1);
     expect(updated.last_active_date).toBe('2026-07-05');
+  });
+
+  it('migrates legacy learned verses into the Surah structure', () => {
+    const migrated = migrateProgressionBySurah(
+      { ...baseProgression, learned_ayahs: [{ surah: 2, ayah: 2 }] },
+      quran
+    );
+
+    expect(migrated.progression).toEqual({
+      '2': { name: 'Al-Baqarah', verses: { '2': 'acquis' } }
+    });
+  });
+
+  it('updates a single verse status without changing another Surah', () => {
+    const withVerses: Progression = {
+      ...baseProgression,
+      progression: {
+        '1': { name: 'Al-Fatihah', verses: { '1': 'acquis' } },
+        '2': { name: 'Al-Baqarah', verses: { '2': 'acquis' } }
+      }
+    };
+
+    const updated = updateVerseStatus(withVerses, 1, 'Al-Fatihah', 1, 'a_reviser');
+
+    expect(updated.progression['1'].verses['1']).toBe('a_reviser');
+    expect(updated.progression['2']).toEqual(withVerses.progression['2']);
   });
 
   it('does not duplicate a learned ayah', () => {

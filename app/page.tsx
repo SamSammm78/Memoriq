@@ -6,12 +6,13 @@ import {
   findAdjacentAyah,
   markAyahAsLearned,
   normalizeProgressionForToday,
-  toggleRevisedAyahForToday,
+  updateVerseStatus,
   type Ayah,
   type Progression,
   type QuranData,
-  type Surah
+  type VerseStatus
 } from '@/lib/progression';
+import { RevisionTab } from '@/components/RevisionTab';
 import { 
   Play, 
   Pause, 
@@ -21,7 +22,6 @@ import {
   CheckCircle2, 
   Settings, 
   BookOpen, 
-  Check, 
   Bell, 
   Volume2, 
   Flame, 
@@ -90,6 +90,7 @@ export default function MemoriqDashboard() {
   const [progression, setProgression] = useState<Progression>({
     current_memorizing: { surah: 1, ayah: 1 },
     learned_ayahs: [],
+    progression: {},
     streak: 0,
     last_active_date: '',
     notification_time: '13:00',
@@ -215,9 +216,11 @@ export default function MemoriqDashboard() {
 
   const currentSurah = quran?.surahs[selectedSurahIndex];
   const currentAyah = currentSurah?.ayahs[selectedAyahIndex];
-  const learnedCount = progression.learned_ayahs.length;
-  const revisedCount = progression.revised_today?.length || 0;
-  const revisionPercent = learnedCount > 0 ? Math.round((revisedCount / learnedCount) * 100) : 0;
+  const verseStatuses = Object.values(progression.progression || {}).flatMap((surah) => Object.values(surah.verses));
+  const learnedCount = verseStatuses.length || progression.learned_ayahs.length;
+  const reviewCount = verseStatuses.filter((status) => status === 'a_reviser').length;
+  const acquiredCount = learnedCount - reviewCount;
+  const revisionPercent = learnedCount > 0 ? Math.round((acquiredCount / learnedCount) * 100) : 0;
   const displayedAyah = splitOpeningBasmala(currentAyah);
 
   const audioUrl = currentSurah && currentAyah 
@@ -331,16 +334,34 @@ export default function MemoriqDashboard() {
     setSelectedAyahIndex(nextAyah - 1);
   };
 
-  const toggleRevisedToday = (surahNum: number, ayahNum: number) => {
-    saveProgression(toggleRevisedAyahForToday(progression, { surah: surahNum, ayah: ayahNum }));
-  };
+  const handleReviewStatusChange = async (
+    surahNum: number,
+    ayahNum: number,
+    status: VerseStatus,
+    surahName: string
+  ) => {
+    const previous = progression;
+    const optimistic = updateVerseStatus(progression, surahNum, surahName, ayahNum, status);
+    setProgression(optimistic);
+    setSyncing(true);
 
-  const clearRevisions = () => {
-    const updated = {
-      ...progression,
-      revised_today: []
-    };
-    saveProgression(updated);
+    try {
+      const res = await fetch('/api/progression', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ surah: surahNum, ayah: ayahNum, status, name: surahName })
+      });
+      if (!res.ok) throw new Error('Verse status sync failed');
+      const result = await res.json();
+      setProgression(result.data);
+    } catch (error) {
+      console.error('Failed to update verse status:', error);
+      setProgression(previous);
+      showTemporaryStatus('Impossible de synchroniser ce statut. Réessayez.');
+      throw error;
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const toggleNotifications = async () => {
@@ -453,18 +474,6 @@ export default function MemoriqDashboard() {
     }
   };
 
-  const getAyahDetails = (surahNum: number, ayahNum: number) => {
-    if (!quran) return null;
-    const surah = quran.surahs.find(s => s.number === surahNum);
-    const ayah = surah?.ayahs.find(a => a.numberInSurah === ayahNum);
-    return {
-      surahName: surah?.englishName || '',
-      surahArabicName: surah?.name || '',
-      ayahText: ayah?.text || '',
-      translation: ayah?.translation || ''
-    };
-  };
-
   if (loadingQuran) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-[#f6f8f5]">
@@ -478,7 +487,7 @@ export default function MemoriqDashboard() {
   }
 
   return (
-    <div className="flex-1 flex flex-col w-full max-w-md h-[100dvh] min-h-[100dvh] lg:h-auto lg:max-w-7xl lg:my-6 lg:min-h-[calc(100vh-3rem)] mx-auto bg-white shadow-xl lg:shadow-2xl border-x lg:border border-zinc-200/50 lg:rounded-2xl relative overflow-hidden">
+    <div id="memoriq-app" className="flex-1 flex flex-col w-full max-w-md h-[100dvh] min-h-[100dvh] lg:h-auto lg:max-w-7xl lg:my-6 lg:min-h-[calc(100vh-3rem)] mx-auto bg-white shadow-xl lg:shadow-2xl border-x lg:border border-zinc-200/50 lg:rounded-2xl relative overflow-hidden">
       
       {/* Header */}
       <header className="z-20 shrink-0 px-5 lg:px-8 pt-[calc(1rem+env(safe-area-inset-top))] lg:pt-5 pb-4 flex items-center justify-between border-b border-zinc-100 bg-white">
@@ -548,15 +557,15 @@ export default function MemoriqDashboard() {
                   <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Appris</span>
                 </div>
                 <div className="rounded-lg bg-zinc-50 border border-zinc-200 p-3">
-                  <span className="block text-xl font-bold text-zinc-800">{revisedCount}</span>
-                  <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Révisés</span>
+                  <span className="block text-xl font-bold text-zinc-800">{reviewCount}</span>
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-wider">À revoir</span>
                 </div>
               </div>
             </div>
 
             <div>
               <div className="flex items-center justify-between text-[10px] text-zinc-500 uppercase tracking-wider font-bold mb-1.5">
-                <span>Aujourd&apos;hui</span>
+                <span>Maîtrisés</span>
                 <span>{revisionPercent}%</span>
               </div>
               <div className="h-2 rounded-full bg-zinc-100 overflow-hidden border border-zinc-200">
@@ -785,96 +794,13 @@ export default function MemoriqDashboard() {
         )}
 
         {/* TAB 2: REVIEW */}
-        {activeTab === 'review' && (
-          <div className="space-y-4 lg:max-w-4xl lg:mx-auto">
-            
-            {/* Statistics box */}
-            <div className="bg-white border border-zinc-200 rounded-xl p-4 flex items-center justify-between shadow-sm">
-              <div>
-                <h3 className="text-xs font-bold text-zinc-700 uppercase tracking-wider">Programme de révision</h3>
-                <p className="text-[10px] text-zinc-500 mt-1">Cochez manuellement les versets revus.</p>
-              </div>
-              <div className="text-right">
-                <span className="text-lg font-bold text-brand-600">
-                  {progression.revised_today?.length || 0} / {progression.learned_ayahs.length}
-                </span>
-                <span className="text-[8px] text-zinc-500 block uppercase tracking-wider mt-0.5">Révisés</span>
-              </div>
-            </div>
-
-            {/* Learned checklist */}
-            {progression.learned_ayahs.length === 0 ? (
-              <div className="bg-white border border-dashed border-zinc-250 rounded-xl p-8 text-center space-y-2 shadow-sm">
-                <BookOpen className="w-6 h-6 text-zinc-400 mx-auto" />
-                <p className="text-zinc-500 text-xs font-semibold">Aucun verset mémorisé.</p>
-                <p className="text-[9px] text-zinc-450">Commencez par valider vos objectifs dans l&apos;onglet principal.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-bold">Versets Mémorisés ({progression.learned_ayahs.length})</span>
-                  {(progression.revised_today?.length || 0) > 0 && (
-                    <button 
-                      onClick={clearRevisions}
-                      className="text-[9px] text-[#2d6a4f] hover:text-[#1b4332] font-semibold underline bg-transparent border-none cursor-pointer"
-                    >
-                      Tout décocher
-                    </button>
-                  )}
-                </div>
-
-                <div className="space-y-2 max-h-[360px] lg:max-h-[calc(100vh-300px)] overflow-y-auto pr-1">
-                  {progression.learned_ayahs.map((learned, idx) => {
-                    const details = getAyahDetails(learned.surah, learned.ayah);
-                    const isRevised = progression.revised_today?.some(
-                      r => r.surah === learned.surah && r.ayah === learned.ayah
-                    ) || false;
-
-                    if (!details) return null;
-
-                    return (
-                      <div 
-                        key={idx}
-                        onClick={() => toggleRevisedToday(learned.surah, learned.ayah)}
-                        className={`p-3.5 rounded-lg border flex items-start space-x-3 cursor-pointer transition-all ${
-                          isRevised 
-                            ? 'bg-brand-50/60 border-brand-200' 
-                            : 'bg-white border-zinc-200 hover:border-zinc-300'
-                        }`}
-                      >
-                        {/* Checkbox */}
-                        <div className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center transition-all ${
-                          isRevised 
-                            ? 'bg-brand-500 border-brand-500 text-white' 
-                            : 'border-zinc-300 bg-transparent text-transparent'
-                        }`}>
-                          <Check className="w-2.5 h-2.5 stroke-[3]" />
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-baseline">
-                            <span className={`text-xs font-bold ${isRevised ? 'text-brand-600' : 'text-zinc-800'}`}>
-                              Sourate {details.surahName}
-                            </span>
-                            <span className="text-[9px] text-zinc-400">
-                              Verset {learned.ayah}
-                            </span>
-                          </div>
-                          
-                          <p className="text-[11px] text-brand-900 mt-1 truncate quran-arabic text-right leading-normal">
-                            {details.ayahText}
-                          </p>
-
-                          <p className="text-[10px] text-zinc-555 mt-1 truncate">
-                            {details.translation}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+        {activeTab === 'review' && quran && (
+          <div className="lg:mx-auto lg:max-w-4xl">
+            <RevisionTab
+              progression={progression}
+              quran={quran}
+              onStatusChange={handleReviewStatusChange}
+            />
           </div>
         )}
 
